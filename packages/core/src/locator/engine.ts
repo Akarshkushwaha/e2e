@@ -21,7 +21,7 @@ import {
 } from '../internal/errors.ts';
 import { requireKey } from '../internal/keys.ts';
 import { describeExpression, expressionHints, filterSpine } from './expression.ts';
-import { abortError, cancelledError, Deadline, POLL_INTERVAL_MS, ReadWindow, sleep, stepTimeout } from '../internal/time.ts';
+import { abortError, cancelledError, Deadline, POLL_INTERVAL_MS, pollDelay, ReadWindow, sleep, stepTimeout } from '../internal/time.ts';
 import { timestamp } from '../internal/ids.ts';
 import { obj } from '../internal/objects.ts';
 import { targetLabel } from '../cache/trace.ts';
@@ -242,6 +242,7 @@ export class LocatorEngine {
     missingFrame: MissingFrame = 'wait',
   ): Promise<readonly NodeRef[]> {
     let retried: unknown;
+    const startedMs = Date.now();
     for (;;) {
       try {
         return await reads.read((timeoutMs) => this.session.locate(expression, this.readOperation(timeoutMs)));
@@ -253,7 +254,7 @@ export class LocatorEngine {
           if (missingFrame === 'empty' && engineError.code === 'FRAME_NOT_FOUND') return [];
           if (!reads.deadline.expired()) {
             retried = cause;
-            await sleep(POLL_INTERVAL_MS, this.signal);
+            await sleep(pollDelay(Date.now() - startedMs), this.signal);
             continue;
           }
         }
@@ -300,7 +301,7 @@ if (sampled && reads.cutOff(cause)) throw await notFound(cause);
       const ref = await this.singleOf(refs, expression);
       if (ref !== null) return { ref, waitedMs: rounds > 1 ? Date.now() - startedMs : 0 };
       if (deadline.expired()) throw await notFound();
-      await sleep(POLL_INTERVAL_MS, this.signal);
+      await sleep(pollDelay(Date.now() - startedMs), this.signal);
     }
   }
 
@@ -524,6 +525,7 @@ const ref = await this.singleOf(await this.resolveOnce(expression, reads, missin
         ...(cause === undefined ? {} : { cause }),
       });
     const reads = this.reads(deadline);
+    const pollStartedMs = Date.now();
     let sampled = false;
     for (;;) {
       let node: SemanticNode | null;
@@ -540,7 +542,7 @@ const ref = await this.singleOf(await this.resolveOnce(expression, reads, missin
         return;
       }
       if (deadline.expired()) throw notVisible();
-      await sleep(POLL_INTERVAL_MS, this.signal);
+      await sleep(pollDelay(Date.now() - pollStartedMs), this.signal);
     }
   }
 
