@@ -108,6 +108,8 @@ export interface TargetExecutorOptions extends EngineSessionsOptions {
   readonly holdStep?: ((step: HeldStep, signal: AbortSignal) => Promise<void>) | undefined;
   /** Whether each hold reads the screen it starts on into `HeldStep.screen`. */
   readonly heldScreens?: boolean | undefined;
+  /** Awaited before each pair starts, before the interrupt check. */
+  readonly beforePair?: (() => Promise<void>) | undefined;
   readonly events?: ExecutionEvents;
   /** The virtual file of tests registered in memory, and the agents they run as; see `InMemoryAttempts`. */
   readonly inMemory?: InMemoryAttempts | undefined;
@@ -271,6 +273,7 @@ export class TargetExecutor extends EngineSessions implements SerialHost {
       const serialUnitKey =
         pair.test.serialId === undefined ? undefined : pairKey(pair.test.serialId, pair.agent, pair.repeat);
       if (serialUnitKey !== undefined && executedSerialUnits.has(serialUnitKey)) continue;
+      await this.options.beforePair?.();
       if (this.interruptSignal.aborted) {
         this.emit(unstartedResult(pair, interruptedSkip(this.interruptSignal)));
         continue;
