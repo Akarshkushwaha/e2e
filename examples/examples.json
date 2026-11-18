@@ -1985,6 +1985,27 @@
           "web"
         ]
       }
+    },
+    {
+      "slug": "openrouter-agent-form",
+      "title": "Testing a service request form with one agent step on OpenRouter",
+      "shortTitle": "OpenRouter agent step",
+      "description": "A synthetic Portuguese service form filled by locators, submitted by one agent.act step on an OpenRouter model you pick, and checked by locators. Offline tests cover provider errors and key redaction.",
+      "source": "community",
+      "repository": "https://github.com/jxnxts/e2e-openrouter-service-form/tree/28498de1599352011097e4b72ddb31caa03f4891",
+      "author": {
+        "name": "Jonatas Soares",
+        "github": "jxnxts"
+      },
+      "license": "Apache-2.0",
+      "tags": {
+        "framework": [
+          "nodejs"
+        ],
+        "platform": [
+          "web"
+        ]
+      }
     }
   ]
 }
