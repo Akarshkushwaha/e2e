@@ -16,6 +16,8 @@ import { z } from 'zod';
 import type { OperationContext, VideoSegment } from '@e2e-dev/core/lib/engine/surface';
 
 export interface SessionRecorderOptions {
+  /** Checks whether this session may use the engine's recorder. */
+  readonly beforeStart?: () => void;
   /** The engine's video hooks. */
   readonly startVideo: (operation: OperationContext) => Promise<void>;
   readonly stopVideo: (operation: OperationContext) => Promise<readonly VideoSegment[]>;
@@ -56,6 +58,8 @@ export class SessionRecorder {
   private active: ActiveRecording | undefined;
   private count = 0;
   private queue: Promise<unknown> = Promise.resolve();
+  private closing = false;
+  private savedOnClose: FinishedRecording | undefined;
 
   constructor(private readonly options: SessionRecorderOptions) {}
 
@@ -70,6 +74,9 @@ export class SessionRecorder {
       if (this.active !== undefined) {
         return `${describe(this.active)} is already running since ${this.active.startedAt.toISOString()}; stop_recording ends it.`;
       }
+
+      this.options.beforeStart?.();
+
       try {
         await this.options.startVideo(this.options.operation(this.options.timeoutMs));
       } catch (cause) {
@@ -104,14 +111,28 @@ export class SessionRecorder {
       const files = segments.map((segment, position) => this.keep(active, segment, position));
       this.active = undefined;
       const startedAt = segments[0]?.startedAt ?? active.startedAt.toISOString();
-      return {
+      const recording = {
         index: active.index,
         name: active.name,
         files,
         startedAt,
         durationMs: Math.max(0, at - Date.parse(startedAt)),
       };
+
+      if (this.closing) {
+        this.savedOnClose = recording;
+      }
+
+      return recording;
     });
+  }
+
+  /** Saves on close, including a stop whose tool call was abandoned. */
+  async saveOnClose(): Promise<string | undefined> {
+    this.closing = true;
+
+    await this.stop();
+    return this.savedOnClose === undefined ? undefined : describeRecording(this.savedOnClose);
   }
 
   /** Runs `body` after every call before it has settled. */

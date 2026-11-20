@@ -376,7 +376,12 @@ junit({ output: 'reports' });
   name: 'dots',
   printsTo: 'stdout',
   onOutput: ({ stream, text, target, pair }) => void process[stream].write(`${target ?? 'runner'} ${pair?.testId ?? ''} ${text}`),
-  onStepPrompt: (prompt) => void prompt?.steps[0].step.label,
+  onStepPrompt: (prompt) => {
+    prompt?.steps[0].step.label satisfies string | undefined;
+    prompt?.steps[0].step.attachId satisfies string | undefined;
+    // @ts-expect-error reporters receive prompt data without the runner's attach hook
+    prompt?.attach;
+  },
   onSummary: (rows) => void rows.map((row) => row.label),
 }) satisfies Reporter;
 ({
